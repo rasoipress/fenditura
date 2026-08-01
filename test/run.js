@@ -276,6 +276,42 @@ async function testWrapped() {
   check('  nessun errore non gestito dopo il rifiuto', env.errors.length === 0, env.errors.join('; '));
 }
 
+/* ══════════════════ 3d. l'attributo hidden regge davvero ══════════════════
+
+   jsdom non calcola gli stili, quindi questa classe di difetti sfugge al resto
+   del banco. Si controlla la sorgente: ogni elemento nascosto con l'attributo
+   hidden deve restare nascosto anche se la sua classe dichiara un display. */
+
+function testHidden() {
+  console.log('\nattributo hidden');
+
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.html'), 'utf8');
+  const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'styles.css'), 'utf8');
+
+  const override = /\[hidden\]\s*\{[^}]*display\s*:\s*none[^}]*!important/.test(css);
+  check('il foglio di stile neutralizza display su [hidden]', override,
+    'manca una regola [hidden]{display:none !important}');
+
+  // senza quella regola, ogni elemento hidden la cui classe dichiara un
+  // display resterebbe visibile: si elencano per nome, così il messaggio dice
+  // quale comando comparirebbe dove non deve
+  const rischio = [];
+  const tags = html.match(/<[a-z]+[^>]*\bhidden\b[^>]*>/g) || [];
+  for (const tag of tags) {
+    if (/aria-hidden/.test(tag) && !/\shidden[\s>]/.test(tag)) continue;
+    const cls = (tag.match(/class="([^"]+)"/) || [])[1];
+    const id = (tag.match(/id="([^"]+)"/) || [])[1] || '(senza id)';
+    if (!cls) continue;
+    for (const name of cls.split(/\s+/)) {
+      const rule = new RegExp(`\\.${name}\\s*\\{[^}]*display\\s*:`, 's');
+      if (rule.test(css)) rischio.push(`${id} (.${name})`);
+    }
+  }
+  check(`elementi hidden con un display di classe: ${rischio.length ? rischio.join(', ') : 'nessuno'}`,
+    override || rischio.length === 0,
+    'resterebbero visibili senza la regola di neutralizzazione');
+}
+
 /* ══════════════════ 4. stato e comandi ══════════════════ */
 
 async function testState() {
@@ -327,6 +363,7 @@ async function testExposure() {
   await testExport();
   await testTiles();
   await testWrapped();
+  testHidden();
   await testState();
   await testExposure();
   console.log(`\n${pass} superate, ${fail} fallite`);

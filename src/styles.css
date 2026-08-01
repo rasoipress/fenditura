@@ -30,6 +30,14 @@
 }
 
 *{box-sizing:border-box;margin:0;padding:0}
+
+/* L'attributo hidden dell'HTML vale solo grazie alla regola [hidden]{display:none}
+   del foglio di stile del browser, e qualunque regola scritta qui la batte, anche
+   a parità di specificità. Senza questa riga il pannello di avanzamento (.curtain,
+   display:flex) restava davanti a tutto fin dall'avvio con scritto "scrittura in
+   corso", e nasconderlo dal JavaScript non aveva alcun effetto. */
+[hidden]{display:none !important}
+
 html,body{height:100%;overflow:hidden}
 body{
   background:var(--chassis);
