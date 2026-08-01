@@ -1,0 +1,92 @@
+name: Compilazione
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    name: Prove
+    runs-on: ubuntu-latest
+    steps:
+      - name: Preleva il codice
+        uses: actions/checkout@v4
+      - name: Prepara Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      # Le prove non hanno bisogno del binario di Electron: girano su jsdom
+      # e su un contesto 2D scritto a mano, quindi l'installazione può
+      # saltare gli script e restare veloce.
+      - name: Installa le dipendenze
+        run: npm ci --ignore-scripts
+      - name: Esegui le prove
+        run: npm test
+
+  build:
+    name: ${{ matrix.label }}
+    needs: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            label: macOS
+            command: npm run dist:mac
+          - os: windows-latest
+            label: Windows
+            command: npm run dist:win
+
+    steps:
+      - name: Preleva il codice
+        uses: actions/checkout@v4
+
+      - name: Prepara Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Installa le dipendenze
+        run: npm ci
+
+      - name: Compila
+        run: ${{ matrix.command }}
+        env:
+          # Le build non sono firmate: senza questa variabile electron-builder
+          # cerca un certificato nel portachiavi e fallisce sui runner puliti.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Conserva i pacchetti
+        uses: actions/upload-artifact@v4
+        with:
+          name: fenditura-${{ matrix.label }}
+          retention-days: 14
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/*.exe
+            dist/*.AppImage
+
+      - name: Pubblica la release sul tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            dist/*.dmg
+            dist/*.zip
+            dist/*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

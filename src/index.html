@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'self'; media-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self'">
+<title>Fenditura</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ══════════════════ intestazione ══════════════════ -->
+<header class="chrome" id="chrome">
+  <div class="mark">
+    <span class="wordmark">Fenditura</span>
+    <span class="tagline">banco di scansione a striscia</span>
+  </div>
+  <div class="chrome-mid">
+    <span class="lamp" id="lamp" data-state="idle"></span>
+    <span class="source" id="sourceName">nessuna sorgente</span>
+  </div>
+  <div class="chrome-end">
+    <button id="btnOpen" class="ghost">Apri video</button>
+  </div>
+</header>
+
+<!-- ══════════════════ corpo ══════════════════ -->
+<main class="deck">
+
+  <!-- ─── colonna sorgente ─── -->
+  <section class="bay bay-source">
+    <div class="bay-head">
+      <h2>Sorgente</h2>
+      <span class="reading" id="sourceSpec">—</span>
+    </div>
+
+    <div class="viewer" id="viewer">
+      <div class="frame" id="frame" hidden>
+        <video id="video" playsinline muted preload="auto"></video>
+        <canvas id="overlay"></canvas>
+      </div>
+      <div class="invite" id="invite">
+        <span class="invite-glyph" aria-hidden="true"></span>
+        <p>Trascina un video in questa finestra, o premi <b>Apri video</b>.</p>
+        <p class="fine">Il file resta sul tuo computer. L'app non ha accesso alla rete.</p>
+      </div>
+    </div>
+
+    <div class="transport">
+      <div class="tc-line">
+        <span class="tc" id="timecode">00:00.00<i>/</i>00:00.00</span>
+        <span class="tc muted" id="counter">0 fotogrammi</span>
+      </div>
+      <input type="range" id="scrub" min="0" max="10000" value="0" disabled aria-label="Posizione nel video">
+      <div class="keys">
+        <button id="btnRun" class="solid" disabled>Avvia</button>
+        <button id="btnClear" disabled>Svuota</button>
+        <button id="btnSave" disabled>Salva striscia…</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── colonna striscia ─── -->
+  <section class="bay bay-strip">
+    <div class="bay-head">
+      <h2>Striscia</h2>
+      <span class="reading" id="stripSpec">0 × 0 px</span>
+    </div>
+
+    <!-- elemento firma: il righello temporale -->
+    <div class="ruler-box"><canvas id="ruler"></canvas></div>
+
+    <div class="theatre">
+      <canvas id="detail"></canvas>
+      <div class="theatre-empty" id="theatreEmpty">la striscia comparirà qui, a grandezza naturale</div>
+      <span class="theatre-tag">1:1 · coda</span>
+    </div>
+
+    <div class="contact">
+      <canvas id="map"></canvas>
+      <span class="contact-tag">striscia intera</span>
+    </div>
+  </section>
+</main>
+
+<!-- ══════════════════ misuratore ══════════════════ -->
+<section class="gauge">
+  <div class="dial">
+    <span class="dial-lab">moto sotto la fenditura</span>
+    <span class="dial-num" id="readD">—<small>px/fot.</small></span>
+  </div>
+  <div class="dial">
+    <span class="dial-lab">scala orizzontale</span>
+    <span class="dial-num" id="readScale">—</span>
+  </div>
+  <div class="trace"><canvas id="trace"></canvas></div>
+  <button id="btnMatch" disabled>Adatta larghezza</button>
+  <p class="verdict" id="verdict">Carica un video e avvia la scansione. Qui compare lo spostamento reale
+    dell&rsquo;immagine da un fotogramma al successivo, e se la larghezza della fenditura restituisce
+    proporzioni corrette o deformate.</p>
+</section>
+
+<!-- ══════════════════ pannello comandi ══════════════════ -->
+<section class="rail">
+
+  <div class="group">
+    <span class="group-name">Fenditura</span>
+    <div class="knob">
+      <div class="knob-head"><label for="ctlPos">Posizione</label><span class="knob-val" id="ctlPosV">50.0 %</span></div>
+      <input type="range" id="ctlPos" min="0" max="10000" value="5000">
+    </div>
+    <div class="knob">
+      <div class="knob-head"><label for="ctlWidth">Larghezza</label><span class="knob-val" id="ctlWidthV">4 px</span></div>
+      <input type="range" id="ctlWidth" min="1" max="96" value="4">
+    </div>
+    <div class="knob">
+      <div class="knob-head"><label for="ctlDrift">Deriva</label><span class="knob-val" id="ctlDriftV">0.00 px/fot.</span></div>
+      <input type="range" id="ctlDrift" min="-1200" max="1200" value="0">
+    </div>
+    <p class="hint">La deriva fa scorrere la fenditura nel fotogramma mentre la scansione procede, di tanti
+      pixel per fetta catturata quanti ne indica il quadrante qui sopra. Serve quando la camera insegue il
+      soggetto: se lo insegue, il soggetto è fermo rispetto al taglio e la striscia si appiattisce in bande
+      verticali.</p>
+  </div>
+
+  <div class="group">
+    <span class="group-name">Geometria</span>
+    <div class="knob">
+      <label for="ctlAxis">Orientamento</label>
+      <select id="ctlAxis">
+        <option value="x">Fenditura verticale · striscia orizzontale</option>
+        <option value="y">Fenditura orizzontale · striscia verticale</option>
+      </select>
+    </div>
+    <div class="knob">
+      <label>Verso di accumulo</label>
+      <div class="switch" id="ctlDir">
+        <button data-v="1" aria-pressed="true">Avanti</button>
+        <button data-v="-1" aria-pressed="false">Indietro</button>
+      </div>
+    </div>
+    <div class="knob">
+      <div class="knob-head"><label for="ctlScale">Scala di uscita</label><span class="knob-val" id="ctlScaleV">50 %</span></div>
+      <input type="range" id="ctlScale" min="10" max="100" value="50">
+    </div>
+    <label class="tick"><input type="checkbox" id="ctlMirror"><span>Raddoppia specchiando</span></label>
+  </div>
+
+  <div class="group">
+    <span class="group-name">Campionamento</span>
+    <div class="knob">
+      <div class="knob-head"><label for="ctlStep">Un fotogramma ogni</label><span class="knob-val" id="ctlStepV">1</span></div>
+      <input type="range" id="ctlStep" min="1" max="16" value="1">
+    </div>
+    <div class="knob">
+      <label for="ctlMethod">Metodo</label>
+      <select id="ctlMethod">
+        <option value="play">Riproduzione — veloce, può perdere fotogrammi</option>
+        <option value="seek">Ricerca esatta — lenta, non perde nulla</option>
+      </select>
+    </div>
+    <div class="knob">
+      <div class="knob-head"><label for="ctlRate">Velocità</label><span class="knob-val" id="ctlRateV">1.0 ×</span></div>
+      <input type="range" id="ctlRate" min="25" max="600" value="100">
+    </div>
+    <div class="knob">
+      <label for="ctlFps">Fotogrammi al secondo (ricerca esatta)</label>
+      <input type="number" id="ctlFps" value="30" min="1" max="480" step="0.001">
+    </div>
+  </div>
+
+  <div class="group">
+    <span class="group-name">Correzioni</span>
+    <label class="tick"><input type="checkbox" id="ctlExp"><span>Stabilizza esposizione</span></label>
+    <p class="hint">Riporta ogni fetta alla luminanza media delle prime, cancellando le bande verticali che
+      l'esposizione automatica lascia nella striscia.</p>
+    <div class="knob">
+      <label for="ctlMax">Lunghezza massima (px)</label>
+      <input type="number" id="ctlMax" value="120000" min="1000" max="2000000" step="1000">
+    </div>
+    <span class="budget" id="budget">memoria in uso <b>0 MB</b></span>
+  </div>
+
+  <div class="group">
+    <span class="group-name">Uscita</span>
+    <div class="knob">
+      <label for="ctlOut">Formato di salvataggio</label>
+      <select id="ctlOut">
+        <option value="single">Striscia unica — PNG in streaming, senza limiti</option>
+        <option value="wrapped">Impaginata a righe — per la stampa</option>
+      </select>
+    </div>
+    <div class="knob" id="wrapRow" hidden>
+      <div class="knob-head"><label for="ctlSeg">Lunghezza di riga</label><span class="knob-val" id="ctlSegV">4000 px</span></div>
+      <input type="range" id="ctlSeg" min="800" max="12000" value="4000" step="100">
+    </div>
+    <div class="knob">
+      <label>Impostazioni</label>
+      <div class="pair">
+        <button id="btnPresetSave">Salva</button>
+        <button id="btnPresetLoad">Carica</button>
+      </div>
+    </div>
+    <p class="hint">La striscia unica non passa da un canvas: le righe vanno su disco man mano, quindi la
+      lunghezza è limitata solo dallo spazio libero.</p>
+  </div>
+
+</section>
+
+<!-- ══════════════════ avanzamento salvataggio ══════════════════ -->
+<div class="curtain" id="curtain" hidden>
+  <div class="curtain-card">
+    <h3 id="curtainTitle">Scrittura in corso</h3>
+    <p class="curtain-detail" id="curtainDetail">—</p>
+    <div class="bar"><span id="barFill"></span></div>
+    <button id="btnAbort" class="danger">Annulla</button>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
