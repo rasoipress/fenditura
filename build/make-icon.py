@@ -4,59 +4,48 @@ Genera build/icon.png, l'icona dell'applicazione.
 
 Forma: la scocca segue la griglia delle icone macOS moderne. Su una tela di
 1024 px il corpo occupa 824 px centrati, e il profilo è una superellisse di
-esponente 5, che è l'approssimazione ragionevole della curva continua che
-Apple usa al posto di un rettangolo con angoli circolari.
+esponente 5 — l'approssimazione della curva continua che Apple usa al posto di
+un rettangolo con angoli circolari. A esponente 5 il profilo coincide quasi
+esattamente con un raggio di 185 px, che è la misura di riferimento.
 
-Contenuto: il taglio, e la striscia che ne esce. Una colonna chiara a sinistra
-del centro è la fenditura; le bande alla sua destra sono le fette accumulate,
-di larghezza e densità diverse come in una strisciata vera. Niente colore:
-soltanto valori di grigio, così l'icona regge sia su scrivania chiara sia su
-scrivania scura e resta leggibile a 16 px.
+Disegno: un taglio solo. Attraversa il corpo da parte a parte, quindi l'icona
+non contiene una fenditura, è una fenditura. Il bordo sinistro è netto e il
+destro si spegne in una scia breve: l'istante esatto e la sua traccia, che è
+tutto ciò che uno slit-scan fa. Nessun secondo oggetto.
+
+Le versioni precedenti mettevano il taglio accanto a un blocco che
+rappresentava la striscia. Erano due cose vicine invece di una: l'occhio non
+sapeva dove posarsi, e sotto i 32 px il blocco collassava in una macchia
+grigia senza sagoma riconoscibile. Un'icona si riconosce dalla silhouette, e
+la silhouette di una linea sopravvive a qualunque riduzione.
+
+Niente colore: solo valori di grigio, così regge su scrivania chiara e scura.
 
     python3 build/make-icon.py
 
-Serve solo Pillow. Il risultato è già nel repository: rilanciarlo è necessario
-soltanto se si cambia il disegno.
+Serve soltanto Pillow. Il risultato è già nel repository: rilanciarlo è
+necessario solo se si cambia il disegno.
 """
 
 from PIL import Image, ImageDraw
+import math
 import os
 
 SIZE = 1024
-SS = 4                     # sovracampionamento
+SS = 4                     # sovracampionamento, poi ridotto con Lanczos
 N = SIZE * SS
 
 BODY = 824 / 1024          # quota del corpo sulla tela, griglia macOS
 EXP = 5.0                  # esponente della superellisse
 
 INK = 32                   # grigio della scocca
-BAND_MIN, BAND_MAX = 58, 247
+LIGHT = 250                # grigio del taglio
 
-# La striscia è un blocco continuo, non una fila di barre separate: le fette
-# di uno slit-scan si toccano, e il vuoto fra una barra e l'altra faceva
-# leggere l'icona come un codice a barre. Ogni voce è larghezza relativa e
-# densità della zona, con un breve raccordo fra una zona e la successiva.
-# Poche zone larghe e molto contrastate si leggono come sbarre; troppe e
-# ravvicinate tornano a essere un codice a barre. Il compromesso è una
-# manciata di eventi forti annegati in variazioni minute, che è poi l'aspetto
-# di una strisciata vera.
-STRIP = [
-    (0.085, 0.97),
-    (0.040, 0.82),
-    (0.062, 0.99),
-    (0.105, 0.16),
-    (0.048, 0.34),
-    (0.075, 0.72),
-    (0.036, 0.58),
-    (0.092, 0.86),
-    (0.055, 0.66),
-    (0.068, 0.24),
-    (0.044, 0.44),
-    (0.118, 0.93),
-    (0.038, 0.74),
-    (0.064, 0.88),
-]
-BLEND = 0.022              # raccordo fra due zone, in quota della striscia
+CUT_X = 0.300              # bordo sinistro del taglio, in quota del corpo
+CUT_W = 0.072              # larghezza del taglio, in quota del corpo
+CUT_PAD = 0.10             # margine sopra e sotto, in quota del corpo
+TRAIL = 1.45               # lunghezza della scia, in multipli della larghezza
+DECAY = 3.6                # rapidità con cui la scia si spegne
 
 
 def superellipse_mask(n, side, exp):
@@ -67,86 +56,51 @@ def superellipse_mask(n, side, exp):
     cx = cy = n / 2.0
     for y in range(n):
         dy = abs(y + 0.5 - cy) / a
-        if dy > 1.0:
+        if dy >= 1.0:
             continue
-        ty = dy ** exp
-        if ty >= 1.0:
-            continue
-        # x massimo per questa riga, dalla equazione della superellisse
-        dx = (1.0 - ty) ** (1.0 / exp)
+        dx = (1.0 - dy ** exp) ** (1.0 / exp)
         x0 = cx - dx * a
         x1 = cx + dx * a
-        i0, i1 = int(x0), int(x1)
-        for x in range(max(0, i0), min(n, i1 + 1)):
-            left = max(x0, x)
-            right = min(x1, x + 1)
-            cov = max(0.0, right - left)
+        for x in range(max(0, int(x0)), min(n, int(x1) + 1)):
+            cov = max(0.0, min(x1, x + 1) - max(x0, x))
             px[x, y] = int(round(cov * 255))
     return mask
 
 
 def build():
-    body_side = N * BODY
-    mask = superellipse_mask(N, body_side, EXP)
+    side = N * BODY
+    left = (N - side) / 2.0
 
     art = Image.new("L", (N, N), INK)
     d = ImageDraw.Draw(art)
 
-    x0 = (N - body_side) / 2.0
-    x1 = x0 + body_side
+    x = left + side * CUT_X
+    w = side * CUT_W
 
-    # margini interni: il contenuto non tocca mai il bordo della scocca
-    inset_x = body_side * 0.115
-    left = x0 + inset_x
-    right = x1 - inset_x
-    span = right - left
+    # Sopra e sotto resta una fascia di scocca. Senza, il taglio arriva ai
+    # bordi e sotto i 128 px l'icona si legge come due forme separate invece
+    # che come una piastrella incisa: la sagoma si spezza, ed è la cosa che
+    # un'icona non può permettersi.
+    top = N / 2 - side * (0.5 - CUT_PAD)
+    bot = N / 2 + side * (0.5 - CUT_PAD)
+    d.rectangle([x, top, x + w, bot], fill=LIGHT)
 
-    # La fenditura è alta e stretta, la striscia bassa e larga: il contrasto
-    # fra le due forme è tutto il contenuto dell'icona, e sopravvive fino a
-    # 16 px, dove un disegno più descrittivo diventerebbe una macchia.
-    top_band = N * 0.5 - body_side * 0.215
-    bot_band = N * 0.5 + body_side * 0.215
-    top_cut = N * 0.5 - body_side * 0.400
-    bot_cut = N * 0.5 + body_side * 0.400
+    # La scia: decadimento esponenziale a destra, disegnato a strisce sottili
+    # perché Pillow non ha gradienti. Si ferma dove raggiunge il fondo, per
+    # non lasciare una banda appena più chiara che a occhio si nota.
+    span = w * TRAIL
+    steps = 600
+    for i in range(steps):
+        u = (i + 0.5) / steps
+        v = LIGHT * math.exp(-DECAY * u)
+        if v <= INK:
+            break
+        d.rectangle([x + w + u * span, top, x + w + (i + 1) / steps * span + 1, bot],
+                    fill=int(round(v)))
 
-    cut_w = span * 0.068
-    cut_x = left + span * 0.075
-    d.rectangle([cut_x, top_cut, cut_x + cut_w, bot_cut], fill=252)
-
-    # la striscia: un unico blocco che cambia densità mentre si accumula
-    start = cut_x + cut_w + span * 0.105
-    width = right - start
-    total = sum(w for w, _ in STRIP)
-
-    def value_at(u):
-        """Densità nel punto u (0…1) della striscia, con raccordi morbidi."""
-        acc = 0.0
-        for i, (w, dens) in enumerate(STRIP):
-            a = acc / total
-            b = (acc + w) / total
-            acc += w
-            if u < a or u > b:
-                continue
-            if i > 0 and u < a + BLEND:
-                prev = STRIP[i - 1][1]
-                f = (u - a) / BLEND
-                dens = prev + (dens - prev) * (f * f * (3 - 2 * f))
-            return BAND_MIN + (BAND_MAX - BAND_MIN) * dens
-        return BAND_MIN + (BAND_MAX - BAND_MIN) * STRIP[-1][1]
-
-    steps = 1400
-    for s in range(steps):
-        u0 = s / steps
-        u1 = (s + 1) / steps
-        val = int(round(value_at((u0 + u1) / 2)))
-        d.rectangle(
-            [start + u0 * width, top_band, start + u1 * width + 1, bot_band],
-            fill=val,
-        )
-
-    rgb = Image.merge("RGB", (art, art, art))
+    mask = superellipse_mask(N, side, EXP)
     out = Image.new("RGBA", (N, N), (0, 0, 0, 0))
-    out.paste(rgb, (0, 0), mask)
+    out.paste(Image.merge("RGB", (art, art, art)), (0, 0), mask)
     out = out.resize((SIZE, SIZE), Image.LANCZOS)
 
     here = os.path.dirname(os.path.abspath(__file__))

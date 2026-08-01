@@ -83,6 +83,11 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           draft: true
+          # L'avviso su Gatekeeper e SmartScreen deve stare in cima alla
+          # descrizione, non nel README: chi scarica un .dmg raramente apre il
+          # repository, e il pulsante predefinito di quella finestra cancella
+          # l'applicazione. Le note generate dai commit finiscono sotto.
+          body_path: .github/RELEASE_NOTES.md
           generate_release_notes: true
           files: |
             dist/*.dmg

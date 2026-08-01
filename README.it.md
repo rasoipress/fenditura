@@ -195,22 +195,71 @@ larghezza della fetta al moto misurato, ⌘⌫ svuota la striscia.
 
 ## Le build non sono firmate
 
-Non c'è nessun certificato Apple né Authenticode nel flusso di compilazione.
+Nel flusso di compilazione non c'è nessun certificato, né Apple né
+Authenticode. Chi scarica un pacchetto se ne accorge subito, perché entrambi i
+sistemi operativi lo dicono con parole che sembrano un'accusa.
 
-Su macOS il primo avvio viene bloccato da Gatekeeper. Si apre con il tasto
-destro sull'app, poi *Apri*, e si conferma. Se il blocco persiste:
+**Non è un rilevamento di malware.** È la formulazione che macOS e Windows
+usano per qualunque programma che nessuno abbia firmato e sottoposto a
+revisione. Non significa che il codice sia stato esaminato e trovato
+pericoloso: significa che non è stato esaminato affatto.
+
+### macOS
+
+Al primo avvio compare un avviso che dice che **Apple non ha potuto verificare
+che l'app sia priva di malware**. Il pulsante predefinito è *Sposta nel
+cestino*: leggi la finestra prima di cliccare.
+
+1. Premi **Fine**, non l'altro pulsante.
+2. Apri **Impostazioni di Sistema → Privacy e sicurezza** e scorri fino a
+   *Sicurezza*.
+3. Accanto alla riga «"Fenditura" è stata bloccata per proteggere il Mac»
+   clicca **Apri comunque**, e conferma con la password.
+
+Il pulsante resta disponibile per circa un'ora dopo il blocco. Se non lo trovi,
+prova ad aprire l'app di nuovo e ripeti il passaggio.
+
+Il vecchio metodo — tasto destro sull'app, poi *Apri* — **non funziona più**
+per le applicazioni non notarizzate, da macOS 15 in poi. Se l'app è già finita
+nel Cestino, recuperala con *Rimetti a posto* prima di procedere.
+
+Dal terminale, in alternativa:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/Fenditura.app
 ```
 
-Su Windows SmartScreen mostra un avviso: *Ulteriori informazioni*, poi *Esegui
-comunque*.
+### Windows
 
-Per far sparire entrambi servono certificati a pagamento: un account Apple
-Developer e un certificato Authenticode. Le variabili d'ambiente che
-electron-builder si aspetta sono documentate su
-[electron.build/code-signing](https://www.electron.build/code-signing).
+SmartScreen mostra **"Windows ha protetto il PC"**. Clicca su *Ulteriori
+informazioni*, poi sul pulsante **Esegui comunque** che compare sotto.
+
+Se il file è stato bloccato al momento del download, il pulsante potrebbe non
+comparire: fai clic destro sul `.exe`, scegli **Proprietà**, e in fondo alla
+scheda *Generale* spunta **Annulla blocco**, poi *Applica*.
+
+Se non c'è nessun *Esegui comunque* e Windows rifiuta e basta, è attivo **Smart
+App Control**, che blocca i programmi non firmati senza offrire eccezioni né
+elenchi di consentiti. L'unica via è disattivarlo da **Sicurezza di Windows →
+Controllo app e browser → Impostazioni di Smart App Control**. Da
+Windows 11 KB5083769 (aprile 2026) si può disattivare senza reinstallare il
+sistema; sulle versioni precedenti la disattivazione era irreversibile senza
+una reinstallazione. Valuta se ne vale la pena: è una protezione che vale per
+tutto il sistema, non solo per questa applicazione.
+
+In alternativa, su qualunque versione di Windows, il pacchetto *portable* non
+richiede installazione ed è spesso meno problematico dell'installatore.
+
+### Farli sparire
+
+Servono certificati a pagamento: un account Apple Developer per firmare e
+notarizzare su macOS, un certificato Authenticode per Windows. Le variabili
+d'ambiente che electron-builder si aspetta sono documentate su
+[electron.build/code-signing](https://www.electron.build/code-signing), e il
+flusso in `.github/workflows/build.yml` non va riscritto: bastano i segreti.
+
+Se preferisci non pagare, la strada senza avvisi resta eseguire l'app dal
+sorgente con `npm start`, che non passa da Gatekeeper né da SmartScreen.
 
 ---
 

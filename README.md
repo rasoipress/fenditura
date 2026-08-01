@@ -188,20 +188,68 @@ width to the measured motion, ⌘⌫ clears the strip.
 
 ## The builds are not signed
 
-There is no Apple certificate and no Authenticode certificate in the workflow.
+There is no certificate in the build workflow, neither Apple's nor
+Authenticode. Anyone downloading a package finds out immediately, because both
+operating systems say so in words that read like an accusation.
 
-On macOS, Gatekeeper blocks the first launch. Right-click the app, choose
-*Open*, confirm. If the block persists:
+**This is not a malware detection.** It is the wording macOS and Windows use
+for any program nobody has signed and submitted for review. It does not mean
+the code was examined and found dangerous; it means it was not examined at all.
+
+### macOS
+
+The first launch raises a warning saying **Apple could not verify the app is
+free of malware**. The default button is *Move to Trash*, so read the dialog
+before clicking.
+
+1. Press **Done**, not the other button.
+2. Open **System Settings → Privacy & Security** and scroll to *Security*.
+3. Next to the line "Fenditura was blocked to protect your Mac", click
+   **Open Anyway** and confirm with your password.
+
+That button stays available for about an hour after the block. If you cannot
+find it, try opening the app again and repeat the step.
+
+The old method — right-click the app, choose *Open* — **no longer works** for
+un-notarised applications, from macOS 15 onward. If the app already went to the
+Trash, use *Put Back* before proceeding.
+
+From the terminal instead:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/Fenditura.app
 ```
 
-On Windows, SmartScreen shows a warning: *More info*, then *Run anyway*.
+### Windows
 
-Removing both requires paid certificates — an Apple Developer account and an
-Authenticode certificate. The environment variables electron-builder expects
-are documented at [electron.build/code-signing](https://www.electron.build/code-signing).
+SmartScreen shows **"Windows protected your PC"**. Click *More info*, then the
+**Run anyway** button that appears below it.
+
+If the file was blocked at download time the button may not appear: right-click
+the `.exe`, choose **Properties**, and at the bottom of the *General* tab tick
+**Unblock**, then *Apply*.
+
+If there is no *Run anyway* at all and Windows simply refuses, **Smart App
+Control** is on. It blocks unsigned programs with no exceptions and no
+allow-list. The only route is turning it off under **Windows Security → App &
+browser control → Smart App Control settings**. Since Windows 11 KB5083769
+(April 2026) it can be switched off without reinstalling Windows; on earlier
+builds that choice was irreversible without a reinstall. Weigh it up: it is a
+system-wide protection, not an app-specific one.
+
+On any Windows version, the *portable* package needs no installer and tends to
+draw fewer objections than the setup executable.
+
+### Making them go away
+
+That takes paid certificates: an Apple Developer account to sign and notarise
+on macOS, an Authenticode certificate for Windows. The environment variables
+electron-builder expects are documented at
+[electron.build/code-signing](https://www.electron.build/code-signing), and
+`.github/workflows/build.yml` needs no rewriting — only the secrets.
+
+If you would rather not pay, the warning-free route is running the app from
+source with `npm start`, which goes through neither Gatekeeper nor SmartScreen.
 
 ---
 
