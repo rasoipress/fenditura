@@ -99,6 +99,38 @@ npm install
 npm start
 ```
 
+Se `npm start` risponde *Electron failed to install correctly*, cerca
+nell'output di `npm install` una riga come questa:
+
+```
+npm warn install-scripts 1 package had install scripts blocked
+npm warn install-scripts   electron@31.7.7 (postinstall: node install.js)
+```
+
+Le versioni recenti di npm bloccano per impostazione predefinita gli script di
+installazione, ed Electron scarica il proprio binario proprio da uno di quelli.
+Il pacchetto c'è, l'eseguibile no. Lancia il download a mano:
+
+```bash
+node node_modules/electron/install.js
+```
+
+Su macOS, se anche questo non basta — l'estrazione può fermarsi in silenzio, e
+su Apple Silicon un binario con la firma saltata viene ucciso all'avvio senza
+un messaggio — c'è uno script che fa i passaggi in ordine con le verifiche in
+mezzo:
+
+```bash
+bash tools/ripara-electron.sh
+```
+
+La soluzione pulita, se hai fretta di lavorare invece di riparare, è usare
+**Node 22 LTS**: la catena di installazione di Electron 31 non regge sulle
+versioni di Node più recenti, mentre su Node 22 `npm install` fa tutto da solo.
+
+Le prove non ne risentono in nessun caso: non hanno bisogno del binario di
+Electron, ed è il motivo per cui `npm test` passa anche quando `npm start` no.
+
 ### Compilazione dei pacchetti
 
 ```bash

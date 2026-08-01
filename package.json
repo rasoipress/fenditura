@@ -1,7 +1,7 @@
 {
   "name": "fenditura",
   "productName": "Fenditura",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Slit-scan scanning bench: turns a video into one continuous strip photograph",
   "license": "MIT",
   "repository": {
