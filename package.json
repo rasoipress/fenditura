@@ -1,7 +1,7 @@
 {
   "name": "fenditura",
   "productName": "Fenditura",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Slit-scan scanning bench: turns a video into one continuous strip photograph",
   "license": "MIT",
   "repository": {
@@ -23,10 +23,10 @@
     "start": "electron .",
     "test": "node test/run.js",
     "icon": "python3 build/make-icon.py",
-    "dist": "electron-builder",
-    "dist:mac": "electron-builder --mac",
-    "dist:win": "electron-builder --win",
-    "dist:all": "electron-builder --mac --win"
+    "dist": "electron-builder --publish never",
+    "dist:mac": "electron-builder --mac --publish never",
+    "dist:win": "electron-builder --win --publish never",
+    "dist:all": "electron-builder --mac --win --publish never"
   },
   "devDependencies": {
     "electron": "^31.0.0",
@@ -60,7 +60,7 @@
       "gatekeeperAssess": false
     },
     "dmg": {
-      "title": "Fenditura ${version}"
+      "title": "Fenditura ${version}${arch}"
     },
     "win": {
       "target": [

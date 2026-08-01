@@ -59,6 +59,14 @@ jobs:
       - name: Installa le dipendenze
         run: npm ci
 
+      # Nota sul titolo del DMG in package.json. Le due compilazioni macOS,
+      # x64 e arm64, girano in parallelo, e ognuna monta un volume chiamato
+      # come il titolo. Senza ${arch} nel titolo montano entrambe lo stesso
+      # /Volumes/Fenditura <versione>: la prima che finisce lo smonta e alla
+      # seconda `hdiutil detach` fallisce con "No such file or directory".
+      # È una corsa, quindi passa o fallisce a seconda dei tempi.
+      # electron-builder aggiunge il suffisso da sé quando il titolo non è
+      # personalizzato, ma non lo aggiunge a un titolo scritto a mano.
       - name: Compila
         run: ${{ matrix.command }}
         env:
