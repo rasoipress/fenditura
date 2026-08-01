@@ -55,7 +55,10 @@ BIN="$APP/Contents/MacOS/Electron"
 echo "  Electron $VER, architettura $ARCH"
 
 if [ -f "$ROOT/node_modules/electron/path.txt" ] && [ -x "$BIN" ]; then
-  if "$BIN" --version >/dev/null 2>&1; then
+  # La prova va isolata in una sottoshell: un binario con la firma rotta viene
+  # ucciso con SIGKILL, e senza questo la shell stampa un "Killed: 9" che
+  # sembra un errore dello script invece della diagnosi che è.
+  if ( "$BIN" --version ) >/dev/null 2>&1; then
     verde "  Electron funziona già. Niente da riparare."
     exit 0
   fi
