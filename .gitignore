@@ -1,10 +1,8 @@
-node_modules/
-dist/
-out/
+.build/
+.swiftpm/
+Fenditura.app/
+*.xcodeproj
+*.xcworkspace
+DerivedData/
 .DS_Store
-Thumbs.db
-*.log
-npm-debug.log*
-.env
-.vscode/
-.idea/
+*.png.iconset

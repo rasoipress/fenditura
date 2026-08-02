@@ -1,105 +1,31 @@
-name: Compilazione
+name: Prove
+
+# Solo le prove del nucleo. Il bundle non viene costruito qui: un'app non
+# firmata compilata su un runner non serve a nessuno, e chi la vuole se la
+# compila in locale con ./build.sh, dove Gatekeeper non entra in gioco.
 
 on:
   push:
     branches: [main]
-    tags: ['v*']
   pull_request:
     branches: [main]
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
   test:
-    name: Prove
-    runs-on: ubuntu-latest
+    name: swift test
+    runs-on: macos-15
     steps:
       - name: Preleva il codice
-        uses: actions/checkout@v4
-      - name: Prepara Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-      # Le prove non hanno bisogno del binario di Electron: girano su jsdom
-      # e su un contesto 2D scritto a mano, quindi l'installazione può
-      # saltare gli script e restare veloce.
-      - name: Installa le dipendenze
-        run: npm ci --ignore-scripts
-      - name: Esegui le prove
-        run: npm test
+        uses: actions/checkout@v5
 
-  build:
-    name: ${{ matrix.label }}
-    needs: test
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-latest
-            label: macOS
-            command: npm run dist:mac
-          - os: windows-latest
-            label: Windows
-            command: npm run dist:win
+      - name: Versione di Swift
+        run: swift --version
 
-    steps:
-      - name: Preleva il codice
-        uses: actions/checkout@v4
+      - name: Prove del nucleo
+        run: swift test
 
-      - name: Prepara Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Installa le dipendenze
-        run: npm ci
-
-      # Nota sul titolo del DMG in package.json. Le due compilazioni macOS,
-      # x64 e arm64, girano in parallelo, e ognuna monta un volume chiamato
-      # come il titolo. Senza ${arch} nel titolo montano entrambe lo stesso
-      # /Volumes/Fenditura <versione>: la prima che finisce lo smonta e alla
-      # seconda `hdiutil detach` fallisce con "No such file or directory".
-      # È una corsa, quindi passa o fallisce a seconda dei tempi.
-      # electron-builder aggiunge il suffisso da sé quando il titolo non è
-      # personalizzato, ma non lo aggiunge a un titolo scritto a mano.
-      - name: Compila
-        run: ${{ matrix.command }}
-        env:
-          # Le build non sono firmate: senza questa variabile electron-builder
-          # cerca un certificato nel portachiavi e fallisce sui runner puliti.
-          CSC_IDENTITY_AUTO_DISCOVERY: false
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Conserva i pacchetti
-        uses: actions/upload-artifact@v4
-        with:
-          name: fenditura-${{ matrix.label }}
-          retention-days: 14
-          path: |
-            dist/*.dmg
-            dist/*.zip
-            dist/*.exe
-            dist/*.AppImage
-
-      - name: Pubblica la release sul tag
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          draft: true
-          # L'avviso su Gatekeeper e SmartScreen deve stare in cima alla
-          # descrizione, non nel README: chi scarica un .dmg raramente apre il
-          # repository, e il pulsante predefinito di quella finestra cancella
-          # l'applicazione. Le note generate dai commit finiscono sotto.
-          body_path: .github/RELEASE_NOTES.md
-          generate_release_notes: true
-          files: |
-            dist/*.dmg
-            dist/*.zip
-            dist/*.exe
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Compilazione dell'eseguibile
+        # Le prove non toccano SwiftUI né AVFoundation: questo passo verifica
+        # che anche la parte grafica compili.
+        run: swift build -c release

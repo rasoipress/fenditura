@@ -1,308 +1,187 @@
 # Fenditura
 
-*[Italiano](README.it.md)*
+Un banco di scansione slit-scan per macOS. Prende un video e ne ricava una sola
+immagine in cui uno degli assi non è più spazio: è tempo.
 
-A desktop app for macOS and Windows that turns a video into a single long
-photograph. It reads the same column of pixels out of every frame and stacks
-those columns side by side. The long axis of the resulting image is not space.
-It is time.
+È la tecnica del photo-finish, delle strisciate di Adam Magyar, delle rollout
+photography che srotolano un vaso in un disegno piatto. Qui la si vede formarsi
+mentre succede, e si corregge guardando.
 
-This is the technique behind photo-finish pictures at a racetrack, behind Adam
-Magyar's subway platform series, behind the rollout photographs that unwrap a
-Maya vase into a flat drawing. Its usual names are **slit-scan**, **strip
-photography** or **photo finish**.
+Applicazione nativa, circa 3 MB, avvio immediato.
 
 ---
 
-## What it is for
+## Le quattro modalità
 
-You have a video: a train going past, a crowd walking, a camera tracking along
-a building. You want the one image that shows the whole event at once, laid out
-end to end, instead of a sequence of frames.
+Non sono quattro algoritmi. Per ogni colonna dell'immagine servono le stesse due
+risposte — da quale istante, da quale posizione nel fotogramma — e cambia solo
+chi le fornisce.
 
-Fenditura does that, and — this is the part other tools leave out — it tells
-you while you work whether the result will have the right proportions.
+**Strisciata.** Le fette si accodano e l'immagine cresce senza limite sull'asse
+del tempo. Treni, folle, facciate. È la modalità che produce le immagini lunghe
+decine di migliaia di pixel.
 
-## The problem it solves
+**Time displacement.** L'immagine ha le dimensioni di un fotogramma e ogni
+colonna resta al proprio posto: cambia solo l'istante da cui viene. Il soggetto
+non scorre via, si deforma. È l'effetto dei ritratti smaterializzati, ed è
+l'unica modalità in cui il risultato è piccolo, sta in memoria e si vede tutto
+insieme mentre si riempie.
 
-Almost every slit-scan attempt fails for a single reason, and the reason is
-geometric.
+**Srotolamento.** Per soggetti che ruotano su sé stessi: fenditura ferma,
+superficie cilindrica distesa in un piano.
 
-If the subject moves **d** pixels between one frame and the next, and you take
-a slice **s** pixels wide, the output image is scaled by **s / d** along the
-long axis. With `s = 1` and `d = 8` your subject comes out squashed eight times
-over, and no amount of stretching afterwards brings it back — the information
-was never sampled.
-
-Correct proportions need `s ≈ d`.
-
-Fenditura measures **d** live, right under the slit, by comparing the luminance
-profile of consecutive frames. A gauge at the bottom of the window reports the
-measured displacement, the resulting scale factor, and a plain sentence saying
-whether the strip is coming out stretched, squashed or true. **Match width**
-sets the slice to the correct value in one click.
-
-If the measured value sits near zero, the camera is tracking the subject: the
-subject is motionless relative to the cut, and the strip flattens into vertical
-bands. Move the slit to where the background flows, or use **drift** to slide
-the slit against the camera's motion.
+**Strisce multiple.** Più fenditure a posizioni diverse nella stessa passata,
+salvate impilate. Serve a decidere dove mettere il taglio senza riscansionare il
+video una volta per ipotesi.
 
 ---
 
-## What it does
+## Il problema che risolve
 
-- **Live preview while scanning.** The tail of the strip at 1:1, a contact view
-  of the whole strip, and a ruler above it converting output pixels back into
-  minutes and seconds of the source.
-- **Slit dragged directly on the monitor**, vertical or horizontal. The strip
-  can accumulate in either direction, and can be doubled into a mirror.
-- **Drift**: the slit slides through the frame as the scan proceeds, by a set
-  number of pixels per captured slice.
-- **Exposure stabilisation**: each slice is pulled back to the average
-  luminance of the first few, which removes the vertical banding that a
-  camera's auto-exposure leaves in the strip.
-- **Two scanning methods.** *Playback* is fast but the browser engine may drop
-  frames; *exact seek* seeks once per frame, is slow, and misses nothing.
-- **Saving with no length limit.** The PNG is written to disk row by row as
-  compression proceeds, so the full image never exists in memory and the
-  roughly 32,000 px canvas ceiling does not apply. Disk space is the limit.
-- **Wrapped layout**: the strip cut into rows and stacked, the way you would
-  print it on a page.
-- Settings saved to and reloaded from JSON.
+Quasi tutti i tentativi di slit-scan falliscono per un motivo solo, ed è
+geometrico. Se il soggetto si sposta di **d** pixel fra una fetta e la
+successiva e la fetta è larga **s**, l'immagine finale è scalata di **s / d**
+sull'asse lungo. Con `s = 1` e `d = 8` esce schiacciata otto volte, e nessuno
+stiramento in post la recupera: quell'informazione non è mai stata campionata.
 
-Everything happens on your machine. The app makes no network requests, and the
-renderer cannot read the disk — only the files you open yourself are reachable.
+Fenditura misura **d** dal vivo, confrontando il profilo di luminanza fra
+fotogrammi consecutivi, e dice in una riga se la striscia sta uscendo stirata,
+schiacciata o proporzionata. Il pulsante *Adatta* imposta la larghezza giusta.
+
+Se il valore resta vicino a zero, la camera sta inseguendo il soggetto: il
+soggetto è fermo rispetto al taglio e la striscia si appiattisce in bande. Sposta
+la fenditura dove scorre lo sfondo, o dalle una traiettoria.
 
 ---
 
-## Installing
+## Da cosa nasce la morbidezza
 
-### From a release
+Non da un filtro applicato dopo, ma dal modo in cui si legge la sorgente. Tre
+meccanismi distinti, cumulabili, tutti nel campionatore:
 
-Download the package for your platform from the
-[releases page](https://github.com/rasoipress/fenditura/releases), and see
-[unsigned builds](#the-builds-are-not-signed) below — the first launch needs
-one extra step.
+**Sub-pixel.** La fenditura vive a coordinate frazionarie e i pixel si leggono
+per interpolazione bilineare. Senza, una deriva di 0,3 px per fetta produce
+colonne ripetute a scatti invece di uno scorrimento.
 
-### From source
+**Sfumatura.** I pixel della finestra si mediano con pesi a campana invece di
+essere copiati a peso pieno. È ciò che trasforma un taglio netto in uno
+strisciato da lunga esposizione. Il cursore va da zero, che è un taglio, a cento.
 
-Node 18 or newer.
+**Fusione temporale.** Due fotogrammi consecutivi si fondono quando l'uscita
+chiede una colonna a metà strada fra l'uno e l'altro. Spenta, la stessa colonna
+viene ripetuta e nella striscia compaiono bande dure: è la causa principale
+dell'aspetto meccanico.
+
+La fenditura può anche essere **inclinata**, e la sua posizione può seguire una
+**traiettoria**: ferma, deriva lineare, o fotogrammi chiave interpolati con
+raccordo morbido, per accompagnare un soggetto che cambia velocità.
+
+---
+
+## Compilare
+
+Servono gli strumenti da riga di comando di Xcode. Non serve aprire Xcode.
 
 ```bash
 git clone https://github.com/rasoipress/fenditura.git
 cd fenditura
-npm install
-npm start
+./build.sh release
+open Fenditura.app
 ```
 
-If `npm start` fails with *Electron failed to install correctly*, look back at the
-`npm install` output for a line like this:
+Lo script esegue prima le prove e, se falliscono, non costruisce niente. Poi
+compila, assembla il bundle, incorpora l'icona e applica una firma ad-hoc —
+necessaria su Apple Silicon, dove un binario non firmato viene ucciso all'avvio
+senza messaggi.
 
-```
-npm warn install-scripts 1 package had install scripts blocked
-npm warn install-scripts   electron@31.7.7 (postinstall: node install.js)
-```
-
-Recent npm versions block install scripts by default, and Electron downloads its
-binary from one. The package is there, the executable is not. Run the download
-yourself:
+Per installarla:
 
 ```bash
-node node_modules/electron/install.js
+cp -R Fenditura.app /Applications/
 ```
 
-On macOS, if that still is not enough — extraction can stall silently, and on
-Apple Silicon a binary whose signature broke is killed at launch with no
-message — a script runs the steps in order with checks between them:
-
-```bash
-bash tools/ripara-electron.sh
-```
-
-The clean answer, if you would rather work than repair, is **Node 22 LTS**:
-Electron 31's install chain does not hold up on the newest Node releases, while
-on Node 22 `npm install` does the whole thing by itself.
-
-The test suite is unaffected either way: it needs no Electron binary, which is
-why `npm test` passes even when `npm start` does not.
-
-### Building the packages
-
-```bash
-npm run dist:mac     # .dmg and .zip, x64 and arm64
-npm run dist:win     # .exe installer and portable build
-```
-
-Output lands in `dist/`. Each platform must be built on itself: a `.dmg` cannot
-be produced from Windows. The workflow in `.github/workflows/build.yml` builds
-both on every push to `main`; a tag starting with `v` prepares a draft release
-with the packages attached.
-
-```bash
-git tag v1.0.0 && git push origin v1.0.0
-```
-
-### Running the tests
-
-```bash
-npm test
-```
-
-The suite runs the real renderer code against a synthetic video whose motion is
-known exactly, and reads back written PNGs with an independent decoder. It
-needs no display and no Electron binary.
+**Costruita in locale non incontra Gatekeeper.** L'avviso con la parola malware
+lo mette il programma che scarica un file, non il file: un'applicazione
+compilata sulla propria macchina si apre con un doppio clic. Per far sparire
+quell'avviso anche sui pacchetti scaricati serve un account Apple Developer,
+qualunque sia il linguaggio in cui l'app è scritta.
 
 ---
 
-## How to use it
-
-1. **Open a video**, or drag it onto the window.
-2. **Place the slit** by dragging on the monitor, or with the *Position*
-   slider. Arrow keys nudge it one source pixel at a time, Shift for ten.
-3. **Press Start.** The strip begins to build and the gauge starts reading.
-4. **Watch the gauge.** When it says the strip is stretched or squashed, press
-   **Match width**, then **Clear** and start again — the slices already
-   captured keep the width they were taken with.
-5. **Save the strip.** *Single strip* streams a PNG of unlimited length;
-   *wrapped* lays it out in rows for printing.
-
-Space starts and stops, and so does ⌘↩ from the menu. ⌘L matches the slice
-width to the measured motion, ⌘⌫ clears the strip.
-
-### Notes from practice
-
-- Shoot at a high frame rate (120–240 fps) so **d** stays small and
-  controllable.
-- Lock exposure, white balance and focus. Every automatic adjustment becomes a
-  vertical band in the strip.
-- Translate the camera parallel to the subject rather than panning it. A pan
-  gives a cylindrical projection; a translation gives the flat elevation that
-  makes these images read like architectural drawings.
-- Prefer a global shutter. With a rolling shutter a single vertical column
-  contains rows read at different instants, and verticals lean.
-- If **d** falls below 1 px per frame, no slit width saves the proportions.
-  You are sampling below the available resolution, and the fix is upstream, at
-  the shoot.
-
----
-
-## The builds are not signed
-
-There is no certificate in the build workflow, neither Apple's nor
-Authenticode. Anyone downloading a package finds out immediately, because both
-operating systems say so in words that read like an accusation.
-
-**This is not a malware detection.** It is the wording macOS and Windows use
-for any program nobody has signed and submitted for review. It does not mean
-the code was examined and found dangerous; it means it was not examined at all.
-
-### macOS
-
-The first launch raises a warning saying **Apple could not verify the app is
-free of malware**. The default button is *Move to Trash*, so read the dialog
-before clicking.
-
-1. Press **Done**, not the other button.
-2. Open **System Settings → Privacy & Security** and scroll to *Security*.
-3. Next to the line "Fenditura was blocked to protect your Mac", click
-   **Open Anyway** and confirm with your password.
-
-That button stays available for about an hour after the block. If you cannot
-find it, try opening the app again and repeat the step.
-
-The old method — right-click the app, choose *Open* — **no longer works** for
-un-notarised applications, from macOS 15 onward. If the app already went to the
-Trash, use *Put Back* before proceeding.
-
-From the terminal instead:
+## Prove
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/Fenditura.app
+swift test
 ```
 
-### Windows
+Il pacchetto è diviso in due bersagli, e la divisione non è cosmetica.
+`FenditturaCore` non importa niente di grafico: è la matematica della scansione,
+e si verifica in pochi secondi.
 
-SmartScreen shows **"Windows protected your PC"**. Click *More info*, then the
-**Run anyway** button that appears below it.
+Le prove sono numeriche, non qualitative. Su una rampa lineare, leggere a metà
+fra il pixel 10 e l'11 deve dare esattamente 84: se il sub-pixel non funziona, la
+prova lo dice con un numero. Due fotogrammi uniformi da 40 e 200 devono dare 120
+a metà fusione. Una striscia che attraversa più piastrelle con una fetta che non
+divide 4096 non deve contenere nemmeno una colonna nera.
 
-If the file was blocked at download time the button may not appear: right-click
-the `.exe`, choose **Properties**, and at the bottom of the *General* tab tick
-**Unblock**, then *Apply*.
-
-If there is no *Run anyway* at all and Windows simply refuses, **Smart App
-Control** is on. It blocks unsigned programs with no exceptions and no
-allow-list. The only route is turning it off under **Windows Security → App &
-browser control → Smart App Control settings**. Since Windows 11 KB5083769
-(April 2026) it can be switched off without reinstalling Windows; on earlier
-builds that choice was irreversible without a reinstall. Weigh it up: it is a
-system-wide protection, not an app-specific one.
-
-On any Windows version, the *portable* package needs no installer and tends to
-draw fewer objections than the setup executable.
-
-### Making them go away
-
-That takes paid certificates: an Apple Developer account to sign and notarise
-on macOS, an Authenticode certificate for Windows. The environment variables
-electron-builder expects are documented at
-[electron.build/code-signing](https://www.electron.build/code-signing), and
-`.github/workflows/build.yml` needs no rewriting — only the secrets.
-
-If you would rather not pay, the warning-free route is running the app from
-source with `npm start`, which goes through neither Gatekeeper nor SmartScreen.
+Quest'ultima non è un'ipotesi di scuola: era un difetto reale della versione
+precedente, invisibile finché la striscia restava sotto i 4096 pixel, e avrebbe
+messo una banda nera ogni 4096 px in ogni stampa.
 
 ---
 
-## How it is built
+## Com'è fatta
 
 ```
-electron/main.js        window, strip:// protocol, IPC channels
-electron/preload.js     contextBridge, minimal surface
-electron/png-writer.js  incremental PNG writer over Node's zlib
-src/index.html          structure
-src/styles.css          stylesheet
-src/app.js              capture, motion measurement, previews, export
-test/harness.js         jsdom plus a software 2D context
-test/run.js             the test suite
-build/make-icon.py      regenerates build/icon.png
+Sources/FenditturaCore/
+  SlitSampler.swift       campionamento continuo: sub-pixel, sfumatura, fusione temporale
+  Trajectory.swift        dove sta la fenditura fetta per fetta, e le modalità
+  StripBuffer.swift       accumulo a piastrelle, riempimento registrato per piastrella
+  TimeDisplacement.swift  tela a dimensione di fotogramma, riempita in una passata
+  MotionMeter.swift       profilo di luminanza, correlazione, verdetto
+  PNGStreamWriter.swift   PNG incrementale: righe a blocchi, compressione a flusso
+  StripExporter.swift     dalla striscia al PNG, per righe
+  ScanSettings.swift      impostazioni con limiti e salvataggio JSON
+
+Sources/Fenditura/
+  FenditturaApp.swift     scena, menu, dialoghi
+  ContentView.swift       monitor, risultato, quadrante, pannello
+  ScanEngine.swift        stato osservabile e coordinamento
+  ScanSession.swift       la passata di lettura, sulla propria coda
 ```
 
-Two decisions are worth explaining.
+Due scelte meritano una spiegazione.
 
-**Why a `strip://` scheme instead of `file://`.** Under `file://` Chromium
-treats the video as an opaque origin and taints the canvas: `getImageData`
-stops working, and with it the motion measurement dies. The main process serves
-the page and the video from the same scheme and the same host, with full Range
-request support because exact-seek mode depends on seeking. Only files the user
-opened explicitly are reachable; the renderer cannot read the disk.
+**Perché AVAssetReader.** Consegna ogni fotogramma, in ordine, decodificato dal
+sistema. Non ne scarta e non ha bisogno di cercare. Nella versione a browser i
+fotogrammi arrivavano dal motore di riproduzione, che ne perde quando è in
+ritardo, e per non perderne nulla bisognava passare a un seek per fotogramma,
+così lento da rendere inutilizzabile un video lungo. Quella scelta fra veloce e
+completo qui non esiste.
 
-**Why a hand-written PNG writer.** No native dependency, so building on GitHub
-Actions needs no toolchain — and, more to the point, rows can arrive in blocks
-and be compressed straight to disk without the full image ever being allocated.
-Sub filter and Node's deflate, nothing else.
-
-The interface is in Italian. *Fenditura* means slit.
+**Perché uno scrittore PNG fatto a mano.** Una striscia da 100.000 × 1080 pixel
+sono 432 MB di soli dati grezzi. Le righe arrivano a blocchi e finiscono
+compresse su disco man mano, quindi l'immagine intera non esiste mai e il limite
+diventa lo spazio libero.
 
 ---
 
-## References
+## Riferimenti
 
-- **Adam Magyar**, *Urban Flow* and *Stainless*: a flatbed scanner sensor
-  mounted behind a lens, later a high-speed industrial camera pointed at
-  moving subway trains from the platform. His is the most exact statement of
-  what the technique does — the horizontal axis is not about space, it is about
-  before and after.
-- **Ed Ruscha**, *Every Building on the Sunset Strip* (1966): not slit-scan
-  technically, but the same conceptual object, and the more useful precedent if
-  you are thinking about a publication rather than a print.
-- **Justin Kerr**, rollout photography of Maya vases: fixed slit, rotating
-  vase, unwrapping a cylindrical surface onto a plane.
-- **George Silk** for LIFE in the 1960s: portraits and sports shot with a
-  photo-finish camera.
-- **Andrew Davidhazy** (RIT) on analogue strip photography.
-- **Golan Levin**, [catalogue of slit-scan works](http://www.flong.com/archive/texts/lists/slit_scan/index.html),
-  last updated 2015.
+- **Adam Magyar**, *Urban Flow* e *Stainless*: sensore di scanner piano dietro un
+  obiettivo, poi camera industriale ad alta velocità puntata dalla banchina sui
+  treni in corsa. Sua è la formulazione più esatta della tecnica: l'asse
+  orizzontale non riguarda lo spazio, riguarda il prima e il dopo.
+- **Ed Ruscha**, *Every Building on the Sunset Strip* (1966): non è slit-scan, è
+  lo stesso oggetto concettuale.
+- **Justin Kerr**, rollout photography dei vasi maya.
+- **George Silk** per LIFE, anni Sessanta: ritratti e sport con camera da photo
+  finish.
+- **Golan Levin**, [catalogo delle opere slit-scan](http://www.flong.com/archive/texts/lists/slit_scan/index.html).
+- **Andrew Ringler**,
+  [video-2-slit-scan](https://github.com/andrewringler/video-2-slit-scan): un
+  altro strumento libero per la stessa tecnica.
 
-## Licence
+## Licenza
 
 MIT.
